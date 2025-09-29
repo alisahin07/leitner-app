@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Leitner Uygulaması</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin: 30px; background: #f4f4f9; }
+    h2 { color: #333; }
+    #controls { margin: 20px; }
+    input, button { padding: 10px; margin: 5px; border-radius: 8px; border: 1px solid #ccc; }
+    #status { margin-top: 20px; font-weight: bold; color: #444; }
+    ul { text-align: left; display: inline-block; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h2>🎧 Leitner – Notion</h2>
+
+  <!-- JSON ekleme -->
+  <input type="file" id="jsonFile" accept=".json">
+  <button onclick="insertLinks()">📥 JSON Database’e Ekle</button>
+  <br><br>
+
+  <!-- Leitner kontrolleri -->
+  <div id="controls">
+    <label>Süre (saniye): </label>
+    <input type="number" id="duration" value="10" min="1">
+    <button onclick="startLeitner()">▶️ Başlat</button>
+    <button onclick="randomLink()">🎲 Rastgele</button>
+    <button onclick="resetToBox1()">🔄 1. Kutuya Sıfırla</button>
+  </div>
+
+  <!-- Sayaçlar -->
+  <h3>⏱ Çalışma Süreleri</h3>
+  <p id="dailyLabel">Bugün: 0 saat</p>
+  <p id="totalLabel">Toplam: 0 saat</p>
+
+  <div id="status">Hazır...</div>
+  <ul id="todayList"></ul>
+
+  <script>
+    let links = [];
+    let currentIndex = 0;
+    let timer;
+    let activePageId = null;
+
+    // süre ölçüm için değişkenler
+    let startTime = null;
+    let dailyHours = 0;
+    let totalHours = 0;
+
+    // 📌 JSON dosyasını oku
+    document.getElementById("jsonFile").addEventListener("change", function(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        links = JSON.parse(e.target.result);
+        document.getElementById("status").innerText = `✅ ${links.length} link yüklendi. "Database’e Ekle" butonuna bas.`;
+      };
+      reader.readAsText(file);
+    });
+
+    // 📌 JSON’daki linkleri database’e ekle
+    async function insertLinks() {
+      if (links.length === 0) {
+        alert("⚠️ Önce JSON dosyası seçmelisin!");
+        return;
+      }
+      const today = new Date().toISOString().split("T")[0];
+
+      for (const link of links) {
+        await fetch("http://localhost:3000/insert", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            parent: { database_id: "27c85a405d038044886bf26380697ff8" },
+            properties: {
+              "Title": { title: [{ text: { content: link.title } }] },
+              "URL": { url: link.url },
+              "Box": { number: 1 },
+              "Next Review": { date: { start: today } },
+              "Daily Hours": { number: 0 },
+              "Total Hours": { number: 0 }
+            }
+          })
+        });
+      }
+      document.getElementById("status").innerText = "✅ JSON’daki linkler database’e eklendi!";
+      await loadTodayLinks();
+    }
+
+    // 📌 Bugünkü linkleri getir
+    async function loadTodayLinks() {
+      const res = await fetch("http://localhost:3000/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+
+      links = data.results.map(page => ({
+        id: page.id,
+        title: page.properties.Title.title[0]?.plain_text || "No Title",
+        url: page.properties.URL.url,
+        box: page.properties.Box.number,
+        daily: page.properties["Daily Hours"]?.number || 0,
+        total: page.properties["Total Hours"]?.number || 0
+      }));
+
+      const ul = document.getElementById("todayList");
+      ul.innerHTML = "";
+      links.forEach(link => {
+        const li = document.createElement("li");
+        li.innerHTML = `<a href="${link.url}" target="_blank">${link.title}</a> (Kutu: ${link.box})`;
+        ul.appendChild(li);
+      });
+
+      document.getElementById("status").innerText = `📅 Bugün ${links.length} link var`;
+    }
+
+    // 📌 Dinleme başlat
+    function startLeitner() {
+      startTime = new Date(); // zaman ölçümü başlasın
+      currentIndex = 0;
+      playNext();
+    }
+
+    function playNext() {
+      const duration = parseInt(document.getElementById("duration").value) * 1000;
+      if (currentIndex >= links.length) {
+        document.getElementById("status").innerText = "🎉 Tüm linkler açıldı";
+        endLeitner(); // süreyi hesapla
+        return;
+      }
+      const link = links[currentIndex];
+      activePageId = link.id;
+      document.getElementById("status").innerText = `▶️ Açılıyor: ${link.title}`;
+      window.open(link.url, "_blank");
+      updateBox(link); // kutu güncelle
+      currentIndex++;
+      clearTimeout(timer);
+      timer = setTimeout(playNext, duration);
+    }
+
+    function randomLink() {
+      const duration = parseInt(document.getElementById("duration").value) * 1000;
+      const randIndex = Math.floor(Math.random() * links.length);
+      const link = links[randIndex];
+      activePageId = link.id;
+      document.getElementById("status").innerText = `🎲 Rastgele: ${link.title}`;
+      window.open(link.url, "_blank");
+      updateBox(link);
+      clearTimeout(timer);
+      timer = setTimeout(playNext, duration);
+    }
+
+    // 📌 Box güncelle
+    async function updateBox(link) {
+      let newBox = (link.box || 1) + 1;
+      if (newBox > 5) newBox = 5;
+
+      const intervals = { 1: 1, 2: 2, 3: 4, 4: 8, 5: 16 };
+      const nextDate = new Date();
+      nextDate.setDate(nextDate.getDate() + intervals[newBox]);
+
+      await fetch(`http://localhost:3000/update/${link.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          properties: {
+            "Box": { number: newBox },
+            "Next Review": { date: { start: nextDate.toISOString().split("T")[0] } }
+          }
+        })
+      });
+    }
+
+    // 📌 1. kutuya sıfırla
+    async function resetToBox1() {
+      if (!activePageId) {
+        alert("⚠️ Önce bir link açmalısın");
+        return;
+      }
+      const today = new Date().toISOString().split("T")[0];
+      await fetch(`http://localhost:3000/update/${activePageId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          properties: {
+            "Box": { number: 1 },
+            "Next Review": { date: { start: today } }
+          }
+        })
+      });
+      document.getElementById("status").innerText = "🔄 Kart 1. kutuya sıfırlandı";
+      await loadTodayLinks();
+    }
+
+    // 📌 Çalışma bitince süre hesapla
+    async function endLeitner() {
+      const endTime = new Date();
+      const diffMs = endTime - startTime;
+      const diffHours = diffMs / (1000 * 60 * 60);
+
+      dailyHours += diffHours;
+      totalHours += diffHours;
+
+      document.getElementById("dailyLabel").innerText = `Bugün: ${dailyHours.toFixed(2)} saat`;
+      document.getElementById("totalLabel").innerText = `Toplam: ${totalHours.toFixed(2)} saat`;
+
+      if (activePageId) {
+        await fetch(`http://localhost:3000/update-hours/${activePageId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            daily: dailyHours,
+            total: totalHours
+          })
+        });
+      }
+    }
+
+    // Sayfa açıldığında bugünkü linkleri getir
+    loadTodayLinks();
+  </script>
+</body>
+</html>
