@@ -38,11 +38,8 @@
   <ul id="todayList"></ul>
 
   <script>
-    const BASE_URL = "https://leitner-app.onrender.com"; // 🌍 Render URL
-
     let links = [];
     let currentIndex = 0;
-    let timer;
     let activePageId = null;
 
     // süre ölçüm için değişkenler
@@ -72,7 +69,7 @@
       const today = new Date().toISOString().split("T")[0];
 
       for (const link of links) {
-        await fetch(`${BASE_URL}/insert`, {
+        await fetch("/insert", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -94,7 +91,7 @@
 
     // 📌 Bugünkü linkleri getir
     async function loadTodayLinks() {
-      const res = await fetch(`${BASE_URL}/query`, {
+      const res = await fetch("/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({})
@@ -128,6 +125,7 @@
       playNext();
     }
 
+    // 📌 Yeni timer mantığı (her saniye kontrol)
     function playNext() {
       const duration = parseInt(document.getElementById("duration").value) * 1000;
       if (currentIndex >= links.length) {
@@ -139,10 +137,17 @@
       activePageId = link.id;
       document.getElementById("status").innerText = `▶️ Açılıyor: ${link.title}`;
       window.open(link.url, "_blank");
-      updateBox(link); // kutu güncelle
-      currentIndex++;
-      clearTimeout(timer);
-      timer = setTimeout(playNext, duration);
+      updateBox(link);
+
+      let elapsed = 0;
+      const checkInterval = setInterval(() => {
+        elapsed += 1000;
+        if (elapsed >= duration) {
+          clearInterval(checkInterval);
+          currentIndex++;
+          playNext();
+        }
+      }, 1000);
     }
 
     function randomLink() {
@@ -153,8 +158,15 @@
       document.getElementById("status").innerText = `🎲 Rastgele: ${link.title}`;
       window.open(link.url, "_blank");
       updateBox(link);
-      clearTimeout(timer);
-      timer = setTimeout(playNext, duration);
+
+      let elapsed = 0;
+      const checkInterval = setInterval(() => {
+        elapsed += 1000;
+        if (elapsed >= duration) {
+          clearInterval(checkInterval);
+          playNext();
+        }
+      }, 1000);
     }
 
     // 📌 Box güncelle
@@ -166,7 +178,7 @@
       const nextDate = new Date();
       nextDate.setDate(nextDate.getDate() + intervals[newBox]);
 
-      await fetch(`${BASE_URL}/update/${link.id}`, {
+      await fetch(`/update/${link.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -185,7 +197,7 @@
         return;
       }
       const today = new Date().toISOString().split("T")[0];
-      await fetch(`${BASE_URL}/update/${activePageId}`, {
+      await fetch(`/update/${activePageId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -212,7 +224,7 @@
       document.getElementById("totalLabel").innerText = `Toplam: ${totalHours.toFixed(2)} saat`;
 
       if (activePageId) {
-        await fetch(`${BASE_URL}/update-hours/${activePageId}`, {
+        await fetch(`/update-hours/${activePageId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

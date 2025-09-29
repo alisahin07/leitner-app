@@ -8,15 +8,15 @@ dotenv.config(); // .env dosyasını oku
 const app = express();
 app.use(express.json());
 app.use(cors());
-app.use(express.static("public")); // frontend dosyaları (leitner.html) buradan servis edilecek
+app.use(express.static("public")); // frontend buradan servis edilir
 
-// 🔑 Gizli değişkenler .env’den veya Render Environment Variables’dan geliyor
+// 🔑 Gizli değişkenler artık .env’den geliyor
 const NOTION_API_KEY = process.env.NOTION_API_KEY;
 const DATABASE_ID = process.env.DATABASE_ID;
 
-// 📌 Test endpoint
-app.get("/api", (req, res) => {
-  res.send("Backend çalışıyor 🚀");
+// 📌 Ana sayfa (leitner.html)
+app.get("/", (req, res) => {
+  res.sendFile("leitner.html", { root: "public" });
 });
 
 // 📌 Bugünkü kartları getir
