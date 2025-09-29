@@ -41,6 +41,7 @@
     let links = [];
     let currentIndex = 0;
     let activePageId = null;
+    let popupWindow = null; // sabit pencere
 
     // süre ölçüm için değişkenler
     let startTime = null;
@@ -122,10 +123,16 @@
     function startLeitner() {
       startTime = new Date(); // zaman ölçümü başlasın
       currentIndex = 0;
+
+      // popup pencereyi ilk başta aç
+      if (!popupWindow || popupWindow.closed) {
+        popupWindow = window.open("", "leitnerWindow", "width=800,height=600");
+      }
+
       playNext();
     }
 
-    // 📌 Yeni timer mantığı (her saniye kontrol)
+    // 📌 Yeni timer mantığı + sabit popup
     function playNext() {
       const duration = parseInt(document.getElementById("duration").value) * 1000;
       if (currentIndex >= links.length) {
@@ -133,10 +140,14 @@
         endLeitner(); // süreyi hesapla
         return;
       }
+
       const link = links[currentIndex];
       activePageId = link.id;
       document.getElementById("status").innerText = `▶️ Açılıyor: ${link.title}`;
-      window.open(link.url, "_blank");
+
+      // aynı pencereyi yeniden kullan
+      popupWindow.location.href = link.url;
+
       updateBox(link);
 
       let elapsed = 0;
@@ -156,7 +167,12 @@
       const link = links[randIndex];
       activePageId = link.id;
       document.getElementById("status").innerText = `🎲 Rastgele: ${link.title}`;
-      window.open(link.url, "_blank");
+
+      if (!popupWindow || popupWindow.closed) {
+        popupWindow = window.open("", "leitnerWindow", "width=800,height=600");
+      }
+      popupWindow.location.href = link.url;
+
       updateBox(link);
 
       let elapsed = 0;
