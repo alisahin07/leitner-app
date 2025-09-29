@@ -8,14 +8,14 @@ dotenv.config(); // .env dosyasını oku
 const app = express();
 app.use(express.json());
 app.use(cors());
-app.use(express.static("public")); // frontend dosyaları servis et
+app.use(express.static("public")); // frontend dosyaları (leitner.html) buradan servis edilecek
 
-// 🔑 Gizli değişkenler artık .env’den geliyor
+// 🔑 Gizli değişkenler .env’den veya Render Environment Variables’dan geliyor
 const NOTION_API_KEY = process.env.NOTION_API_KEY;
 const DATABASE_ID = process.env.DATABASE_ID;
 
 // 📌 Test endpoint
-app.get("/", (req, res) => {
+app.get("/api", (req, res) => {
   res.send("Backend çalışıyor 🚀");
 });
 
@@ -116,6 +116,7 @@ app.patch("/update-hours/:pageId", async (req, res) => {
 });
 
 // 📌 Sunucuyu çalıştır
-app.listen(3000, () => {
-  console.log("🚀 Server çalışıyor: http://localhost:3000");
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server çalışıyor: http://localhost:${PORT}`);
 });
