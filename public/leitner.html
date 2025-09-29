@@ -38,6 +38,8 @@
   <ul id="todayList"></ul>
 
   <script>
+    const BASE_URL = "https://leitner-app.onrender.com"; // 🌍 Render URL
+
     let links = [];
     let currentIndex = 0;
     let timer;
@@ -70,7 +72,7 @@
       const today = new Date().toISOString().split("T")[0];
 
       for (const link of links) {
-        await fetch("http://localhost:3000/insert", {
+        await fetch(`${BASE_URL}/insert`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -92,7 +94,7 @@
 
     // 📌 Bugünkü linkleri getir
     async function loadTodayLinks() {
-      const res = await fetch("http://localhost:3000/query", {
+      const res = await fetch(`${BASE_URL}/query`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({})
@@ -164,7 +166,7 @@
       const nextDate = new Date();
       nextDate.setDate(nextDate.getDate() + intervals[newBox]);
 
-      await fetch(`http://localhost:3000/update/${link.id}`, {
+      await fetch(`${BASE_URL}/update/${link.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -183,7 +185,7 @@
         return;
       }
       const today = new Date().toISOString().split("T")[0];
-      await fetch(`http://localhost:3000/update/${activePageId}`, {
+      await fetch(`${BASE_URL}/update/${activePageId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -210,7 +212,7 @@
       document.getElementById("totalLabel").innerText = `Toplam: ${totalHours.toFixed(2)} saat`;
 
       if (activePageId) {
-        await fetch(`http://localhost:3000/update-hours/${activePageId}`, {
+        await fetch(`${BASE_URL}/update-hours/${activePageId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
